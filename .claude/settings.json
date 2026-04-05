@@ -12,6 +12,18 @@
       "WebSearch(*)",
       "TodoWrite(*)",
       "NotebookEdit(*)",
+      "AskUserQuestion(*)",
+      "CronCreate(*)",
+      "CronDelete(*)",
+      "CronList(*)",
+      "EnterPlanMode(*)",
+      "ExitPlanMode(*)",
+      "EnterWorktree(*)",
+      "ExitWorktree(*)",
+      "TaskOutput(*)",
+      "TaskStop(*)",
+      "RemoteTrigger(*)",
+      "Skill(*)",
       "mcp__*"
     ],
     "deny": []
@@ -50,7 +62,25 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/verify-check.sh",
+            "timeout": 10,
+            "statusMessage": "Checking if changes were verified in browser..."
+          }
+        ]
+      }
     ]
+  },
+  "mcpServers": {
+    "chrome-devtools": {
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--viewport", "1024x768"]
+    }
   },
   "statusLine": {
     "type": "command",
