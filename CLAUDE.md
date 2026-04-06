@@ -58,6 +58,23 @@
 - **MCP config location**: MCP servers MUST be registered in `~/.claude.json` (user scope) or `.mcp.json` (project scope). NOT in `settings.json` — that file is for permissions/hooks only. Use `claude mcp add chrome-devtools --scope user -- npx -y chrome-devtools-mcp@latest --viewport 1024x768` to register correctly.
 - **If `mcp__chrome-devtools__*` tools are not available**: Check that `.mcp.json` exists at project root, kill stale processes (`pkill -f chrome-devtools-mcp`), and restart the session.
 
+## SIT Verification Config (opt-in)
+
+Enable SIT (System Integration Testing) verification by configuring these values. If not set, only local verification (Stage 1) is active.
+
+```
+SIT Enabled: true
+SIT URL: <sit-server-url>
+SIT Health Endpoint: <sit-server-url>/api/health
+SIT Branch: develop
+```
+
+- **Branch model**: `main` = production, `develop` = SIT server. Feature branches branch off `develop`.
+- **Auto-deploy**: Pushing to `develop` triggers auto-deploy to the SIT server.
+- **Deploy detection**: Claude polls the SIT Health Endpoint until the deployed commit SHA matches what was pushed. Timeout: 5 minutes.
+- **Revert strategy**: On SIT test failure, `git revert` the merge commit on `develop` (safe, preserves history). Feature branch is preserved for fixing.
+- **Post-revert note**: After revert, auto-deploy triggers again with the reverted code. Expect a brief window (roughly deploy time) where the failed build is still live on SIT.
+
 ## Core Principles
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
@@ -120,3 +137,78 @@ Each project should set its staging URL in CLAUDE.local.md:
 Staging URL: http://localhost:3000
 ```
 
+### Stage 2: SIT Verification (triggered by /ship)
+
+This stage only runs if `SIT Enabled: true` is set in the project's CLAUDE.md. If not configured, /ship skips SIT and proceeds with local-only verification.
+
+The full two-stage flow:
+```
+Stage 1 (local)  →  Stage 2 (SIT)  →  PR to main
+localhost test       deployed test      production-ready
+Stop hook enforces   /ship triggers     /ship creates PR
+```
+
+#### 2a. Merge Queue Check
+Before merging to develop, verify the queue is clear:
+- Check if a `.sit-testing` lock file exists at `$HOME/.cache/.sit-testing-lock`
+- If locked: another feature is being SIT-tested. Wait or alert the user.
+- If clear: create the lock file with current branch name and timestamp
+- Lock format: `echo "$(git branch --show-current) $(date +%s)" > $HOME/.cache/.sit-testing-lock`
+
+#### 2b. Push and Merge to Develop
+- Push feature branch to remote: `git push origin <feature-branch>`
+- Merge feature into develop (no-ff): `git checkout develop && git merge --no-ff <feature-branch>`
+- Push develop: `git push origin develop`
+- Record the merge commit SHA for later verification
+
+#### 2c. Wait for Deploy
+- Poll the SIT Health Endpoint every 10 seconds
+- Check that the response includes the expected commit SHA (from step 2b)
+- Example health check: `curl -s <SIT Health Endpoint> | jq -r '.commit'`
+- Timeout: **5 minutes**. If not ready by then, proceed to revert (step 2f)
+
+#### 2d. Verify on SIT
+- Use Chrome DevTools MCP tools to test against the **SIT URL** (not localhost)
+- Navigate to affected pages (`mcp__chrome-devtools__navigate_page` with SIT URL)
+- Take screenshots to verify visual state
+- Check console for errors
+- Test the actual user flows
+- Verify each "done" criterion from Stage 1, step 1
+
+#### 2e. On SIT Pass
+- Remove the `.sit-testing` lock file
+- Create PR from develop to main via /ship
+- Report success with screenshot evidence from SIT
+
+#### 2f. On SIT Failure
+- **First failure**: Wait 30 seconds, then retry the full SIT verification (step 2d) once. This catches transient issues (network blips, timing).
+- **Second failure or timeout**: Revert the merge on develop:
+  ```
+  git checkout develop
+  git revert <merge-commit-sha> --no-edit
+  git push origin develop
+  ```
+- Remove the `.sit-testing` lock file
+- Preserve the feature branch for debugging
+- Report failure with details: what failed, screenshots, console errors
+- Do NOT create a PR to main
+
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS invoke it using the Skill
+tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
+The skill has specialized workflows that produce better results than ad-hoc answers.
+
+Key routing rules:
+- Product ideas, "is this worth building", brainstorming → invoke office-hours
+- Bugs, errors, "why is this broken", 500 errors → invoke investigate
+- Ship, deploy, push, create PR → invoke ship
+- QA, test the site, find bugs → invoke qa
+- Code review, check my diff → invoke review
+- Update docs after shipping → invoke document-release
+- Weekly retro → invoke retro
+- Design system, brand → invoke design-consultation
+- Visual audit, design polish → invoke design-review
+- Architecture review → invoke plan-eng-review
+- Save progress, checkpoint, resume → invoke checkpoint
+- Code quality, health check → invoke health
