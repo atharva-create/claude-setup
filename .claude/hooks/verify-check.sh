@@ -16,6 +16,26 @@ if ! git rev-parse --is-inside-work-tree &>/dev/null; then
   exit 0
 fi
 
+# Detect if running in a git worktree (subagent with isolation="worktree")
+# Subagents can't access Chrome DevTools MCP — main agent will verify after they complete
+GIT_DIR=$(git rev-parse --git-dir 2>/dev/null)
+GIT_COMMON_DIR=$(git rev-parse --git-common-dir 2>/dev/null)
+if [ -n "$GIT_DIR" ] && [ -n "$GIT_COMMON_DIR" ] && [ "$GIT_DIR" != "$GIT_COMMON_DIR" ]; then
+  exit 0  # Subagent in worktree — main agent will verify
+fi
+
+# Detect subagent marker (for inline subagents without worktree isolation)
+SUBAGENT_MARKER="$HOME/.cache/.claude-subagent-active"
+if [ -f "$SUBAGENT_MARKER" ]; then
+  marker_ts=$(cat "$SUBAGENT_MARKER" 2>/dev/null || echo "0")
+  now=$(date +%s)
+  if [ "$((now - marker_ts))" -lt 1800 ]; then
+    exit 0  # Active subagent context — skip verification
+  else
+    rm -f "$SUBAGENT_MARKER"  # Expired marker, clean up
+  fi
+fi
+
 # Detect code file changes (staged + unstaged)
 CODE_EXTENSIONS="ts|tsx|js|jsx|py|rb|go|rs|java|c|cpp|h|hpp|css|scss|html|svelte|vue|swift|kt|sh|sql|php"
 

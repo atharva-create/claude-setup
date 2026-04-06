@@ -197,6 +197,16 @@ Report:
 <step name="execute_waves">
 Execute each selected wave in sequence. Within a wave: parallel if `PARALLELIZATION=true`, sequential if `false`.
 
+**Subagent marker lifecycle:** Before spawning executor agents, set the subagent marker so the verify-check stop hook skips browser verification for subagents (they lack Chrome DevTools MCP access):
+```bash
+date +%s > "$HOME/.cache/.claude-subagent-active"
+```
+After ALL executor agents in the wave complete, clean up the marker:
+```bash
+rm -f "$HOME/.cache/.claude-subagent-active"
+```
+**Post-wave verification:** If the project's CLAUDE.md mandates browser verification and executor agents changed code files, the orchestrator (main agent) MUST perform Chrome DevTools verification after subagents complete — subagents cannot do this themselves.
+
 **For each wave:**
 
 1. **Describe what's being built (BEFORE spawning):**

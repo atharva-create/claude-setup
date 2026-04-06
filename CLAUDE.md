@@ -55,6 +55,8 @@
 - All browser testing and verification MUST use `mcp__chrome-devtools__*` tools.
 - Never use `mcp__claude-in-chrome__*` tools.
 - For general web browsing (not testing), `/browse` from gstack may be used.
+- **MCP config location**: MCP servers MUST be registered in `~/.claude.json` (user scope) or `.mcp.json` (project scope). NOT in `settings.json` — that file is for permissions/hooks only. Use `claude mcp add chrome-devtools --scope user -- npx -y chrome-devtools-mcp@latest --viewport 1024x768` to register correctly.
+- **If `mcp__chrome-devtools__*` tools are not available**: Check that `.mcp.json` exists at project root, kill stale processes (`pkill -f chrome-devtools-mcp`), and restart the session.
 
 ## Core Principles
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
@@ -110,6 +112,7 @@ For EVERY feature, bug fix, or code change — this is MANDATORY and enforced by
 - **Backend API changes**: Use `mcp__chrome-devtools__evaluate_script` to fetch endpoints and verify responses, or use curl then verify the frontend consumer
 - **Backend-only (no UI)**: If the project has no frontend at all, skip browser verification and touch the sentinel after running tests via CLI
 - **Config/docs only changes**: No verification needed (the Stop hook ignores non-code files)
+- **Subagent-produced changes**: Subagents (gsd-executor, etc.) do NOT have Chrome DevTools MCP access. The stop hook auto-detects subagent context (worktree or marker file) and skips enforcement. Browser verification is the MAIN AGENT's responsibility after subagent completion. After a subagent returns with code changes, the main agent MUST verify before marking the task complete.
 
 ### Staging URL
 Each project should set its staging URL in CLAUDE.local.md:
