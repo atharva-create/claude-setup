@@ -53,14 +53,16 @@
 
 Vendored at `plugins/superpowers/` (upstream: https://github.com/obra/superpowers). A complete development methodology built on composable skills: brainstorming, TDD, systematic debugging, subagent-driven development, verification-before-completion, writing-plans, using-git-worktrees, and more.
 
-Install into Claude Code from this repo:
+**Auto-activates on first session.** The `SessionStart` hook at `.claude/hooks/bootstrap-superpowers.sh` writes the marketplace into `.claude/settings.local.json` with an absolute path (workaround for Claude Code issue #23978). On the second session, Claude Code prompts to trust the marketplace; accept once, and Superpowers loads automatically from then on. The hook is idempotent — subsequent sessions are a no-op.
+
+Verify activation with: *"Tell me about your superpowers"*. If the trust prompt is declined, the hook re-bootstraps next session. Manual fallback if automation ever fails:
 
 ```
 /plugin marketplace add ./plugins/superpowers
 /plugin install superpowers@superpowers-dev
 ```
 
-After install, skills trigger automatically — no slash commands needed. Verify with: "Tell me about your superpowers". To update, re-run `git pull` on the upstream URL inside `plugins/superpowers/` (or re-vendor) and reinstall.
+To update the vendored copy, re-clone from upstream into `plugins/superpowers/` and commit.
 
 ## Browser Automation — Chrome DevTools ONLY
 

@@ -31,34 +31,12 @@
   "hooks": {
     "SessionStart": [
       {
+        "matcher": "startup|clear|compact",
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/gsd-check-update.js"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Bash|Edit|Write|MultiEdit|Agent|Task",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-context-monitor.js",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/bootstrap-superpowers.sh",
             "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .claude/hooks/gsd-prompt-guard.js",
-            "timeout": 5
           }
         ]
       }
@@ -76,14 +54,12 @@
       }
     ]
   },
-  "mcpServers": {
-    "chrome-devtools": {
-      "command": "npx",
-      "args": ["-y", "chrome-devtools-mcp@latest", "--viewport", "1024x768"]
+  "extraKnownMarketplaces": {
+    "superpowers-dev": {
+      "source": { "source": "directory", "path": "./plugins/superpowers" }
     }
   },
-  "statusLine": {
-    "type": "command",
-    "command": "node .claude/hooks/gsd-statusline.js"
+  "enabledPlugins": {
+    "superpowers@superpowers-dev": true
   }
 }

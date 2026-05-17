@@ -10,13 +10,15 @@ Bootstrap configuration for new projects. Clone this into a new project folder t
 - **`.mcp.json`** — MCP server registration (Chrome DevTools)
 - **`plugins/superpowers/`** — vendored copy of [obra/superpowers](https://github.com/obra/superpowers): a complete development methodology with composable skills (TDD, systematic debugging, subagent-driven development, etc.)
 
-## Installing Superpowers into Claude Code
+## Superpowers — auto-activated
 
-From the repo root:
+Superpowers activates automatically. A `SessionStart` hook at `.claude/hooks/bootstrap-superpowers.sh` registers the vendored marketplace on first session; on the next session Claude Code prompts you to trust it once, and skills load automatically from then on. No manual `/plugin` commands needed.
+
+Manual fallback (only if automation ever fails):
 
 ```
 /plugin marketplace add ./plugins/superpowers
 /plugin install superpowers@superpowers-dev
 ```
 
-Skills then trigger automatically. See `plugins/superpowers/README.md` for details.
+See `plugins/superpowers/README.md` for the full skill list.
