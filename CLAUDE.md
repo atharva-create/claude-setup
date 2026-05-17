@@ -49,6 +49,19 @@
 - Available skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/browse`, `/connect-chrome`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/setup-deploy`, `/retro`, `/investigate`, `/document-release`, `/codex`, `/cso`, `/autoplan`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`
 - If gstack skills aren't working, run `cd .claude/skills/gstack && ./setup` to build the binary and register skills.
 
+## Superpowers
+
+Vendored at `plugins/superpowers/` (upstream: https://github.com/obra/superpowers). A complete development methodology built on composable skills: brainstorming, TDD, systematic debugging, subagent-driven development, verification-before-completion, writing-plans, using-git-worktrees, and more.
+
+Install into Claude Code from this repo:
+
+```
+/plugin marketplace add ./plugins/superpowers
+/plugin install superpowers@superpowers-dev
+```
+
+After install, skills trigger automatically — no slash commands needed. Verify with: "Tell me about your superpowers". To update, re-run `git pull` on the upstream URL inside `plugins/superpowers/` (or re-vendor) and reinstall.
+
 ## Browser Automation — Chrome DevTools ONLY
 
 - **Chrome DevTools MCP is the ONLY browser automation tool. No Playwright, no Puppeteer, no alternatives. Ever.**
@@ -129,7 +142,7 @@ For EVERY feature, bug fix, or code change — this is MANDATORY and enforced by
 - **Backend API changes**: Use `mcp__chrome-devtools__evaluate_script` to fetch endpoints and verify responses, or use curl then verify the frontend consumer
 - **Backend-only (no UI)**: If the project has no frontend at all, skip browser verification and touch the sentinel after running tests via CLI
 - **Config/docs only changes**: No verification needed (the Stop hook ignores non-code files)
-- **Subagent-produced changes**: Subagents (gsd-executor, etc.) do NOT have Chrome DevTools MCP access. The stop hook auto-detects subagent context (worktree or marker file) and skips enforcement. Browser verification is the MAIN AGENT's responsibility after subagent completion. After a subagent returns with code changes, the main agent MUST verify before marking the task complete.
+- **Subagent-produced changes**: Subagents do NOT have Chrome DevTools MCP access. The stop hook auto-detects subagent context (worktree or marker file) and skips enforcement. Browser verification is the MAIN AGENT's responsibility after subagent completion. After a subagent returns with code changes, the main agent MUST verify before marking the task complete.
 
 ### Staging URL
 Each project should set its staging URL in CLAUDE.local.md:
