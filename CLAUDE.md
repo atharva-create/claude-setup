@@ -227,3 +227,26 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+## Visual Comprehension Layer (`viz/`)
+
+A reusable system that turns plans and code changes into **self-explanatory, interactive
+diagrams a non-coder can fully understand** — four views (Map / Journey / Shape / Steps),
+rendered as an offline, double-click HTML viewer (D2 + a hand-authored shell). Ships in every
+project via the `viz/` folder.
+
+**Three opt-in slash commands** (never auto-run — the user asks when they want a picture):
+- `/viz-map` — the whole-project module map (grouped into ≤~7 areas) + the 4 views.
+- `/viz-changes` — the 4 views of what just changed (uncommitted diff). **No-code-skip:** if
+  nothing changed, it prints "No code changes — nothing to visualize" and writes nothing.
+- `/viz-plan` — the 4 views of what the current plan will build (before any code).
+
+**Rules when generating a visualization:**
+- **Always read and obey `viz/VISUAL-STYLE.md`** (the Clarity Standard, color roles, D2 label
+  escaping, recipes, and the `VIZ` payload shape). It is the single source of truth.
+- **Ground + self-check:** read the real files, then re-read to confirm the picture doesn't
+  contradict the code; fix mismatches or add plain ⚠ uncertainty notes. Keep scope small.
+- **Render via `node viz/build-viz.cjs`** (compiles D2→SVG offline, injects into
+  `viz/template.html`). Requires the `d2` binary on `PATH` (or `~/.local/bin/d2`).
+- Output goes to `viz/output/<map|changes|plan>.viz.{md,html}`, **overwritten in place**
+  (≤6 files total). `.viz.md` is the diffable source of truth; `.viz.html` is the offline viewer.
+- `.claude/commands/viz-*.md` are thin stubs; the real logic lives in `viz/commands/*.md`.

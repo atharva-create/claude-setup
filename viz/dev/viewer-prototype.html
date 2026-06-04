@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comprehension Viewer — reference prototype</title>
+<style>
+  :root{
+    /* role colors — meaning, not decoration */
+    --ui:#3b6fe0;      --ui-bg:#eaf1fe;   --ui-ink:#1d3f8f;
+    --logic:#0fa672;   --logic-bg:#e6f7f0; --logic-ink:#0a6e4c;
+    --outside:#e08b2f; --outside-bg:#fdf1e1; --outside-ink:#9a5a13;
+    --store:#7d5ce0;   --store-bg:#f0ebfd; --store-ink:#523a9c;
+    /* surface */
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#161b25; --muted:#697084;
+    --line:#e4e7ee; --line-strong:#cfd4df;
+    --shadow:0 1px 2px rgba(20,27,40,.04),0 8px 24px rgba(20,27,40,.06);
+    --radius:14px;
+    --font:"Söhne","Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+    --serif:"Tiempos Text",Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+  /* ---------- top bar ---------- */
+  .topbar{display:flex;align-items:center;gap:16px;padding:14px 22px;
+    background:var(--panel);border-bottom:1px solid var(--line)}
+  .crumb{font-size:13px;color:var(--muted)}
+  .crumb b{color:var(--ink);font-weight:600}
+  .title{font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .pill{font-size:11px;font-weight:600;color:var(--muted);
+    border:1px solid var(--line-strong);border-radius:999px;padding:3px 10px}
+  .legend{margin-left:auto;display:flex;gap:14px;align-items:center}
+  .legend .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .legend .dot{width:10px;height:10px;border-radius:3px}
+  /* ---------- layout ---------- */
+  .stage{flex:1;display:grid;grid-template-columns:208px 1fr;min-height:0}
+  .rail{border-right:1px solid var(--line);background:var(--panel);padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+  .rail h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:6px 8px 10px}
+  .navbtn{text-align:left;border:0;background:transparent;border-radius:10px;padding:11px 12px;cursor:pointer;
+    display:flex;flex-direction:column;gap:2px;color:var(--ink);font-family:inherit}
+  .navbtn .nb-t{font-size:14px;font-weight:600}
+  .navbtn .nb-s{font-size:11.5px;color:var(--muted)}
+  .navbtn:hover{background:#f1f3f7}
+  .navbtn.active{background:#eef2fb;box-shadow:inset 0 0 0 1px #d7e1f8}
+  .navbtn.active .nb-t{color:var(--ui-ink)}
+  .rail .spacer{flex:1}
+  .rail .foot{font-size:10.5px;color:var(--muted);line-height:1.5;padding:8px;border-top:1px solid var(--line);margin-top:8px}
+  /* ---------- canvas ---------- */
+  .canvaswrap{min-width:0;display:flex;flex-direction:column;overflow:hidden}
+  .caption{padding:22px 30px 6px}
+  .caption .eyebrow{font-size:12px;font-weight:600;color:var(--ui);letter-spacing:.02em;text-transform:uppercase}
+  .caption h2{margin:6px 0 0;font-size:24px;font-weight:600;letter-spacing:-.02em}
+  .canvas{flex:1;position:relative;margin:8px 24px;border-radius:var(--radius);
+    background:
+      radial-gradient(circle at 1px 1px,#e9ecf2 1px,transparent 0) 0 0/22px 22px,
+      var(--panel);
+    box-shadow:var(--shadow);overflow:hidden}
+  /* nodes */
+  .node{position:absolute;width:150px;padding:12px 14px;border-radius:12px;background:var(--panel);
+    box-shadow:0 1px 2px rgba(20,27,40,.06),0 6px 16px rgba(20,27,40,.07);
+    border:1px solid var(--line);cursor:pointer;transition:.45s cubic-bezier(.2,.7,.2,1);
+    opacity:0;transform:translateY(8px) scale(.96)}
+  .node.show{opacity:1;transform:none}
+  .node .role{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+  .node .nm{font-size:14px;font-weight:600;line-height:1.2}
+  .node .sub{font-size:11px;color:var(--muted);margin-top:3px;font-family:ui-monospace,Menlo,monospace}
+  .node.ui{border-top:3px solid var(--ui)} .node.ui .role{color:var(--ui)}
+  .node.logic{border-top:3px solid var(--logic)} .node.logic .role{color:var(--logic-ink)}
+  .node.outside{border-top:3px solid var(--outside)} .node.outside .role{color:var(--outside-ink)}
+  .node.store{border-top:3px solid var(--store)} .node.store .role{color:var(--store-ink)}
+  .node.here{box-shadow:0 0 0 3px #fff,0 0 0 6px var(--ui),0 10px 30px rgba(59,111,224,.35);z-index:5}
+  .node.dim{opacity:.32;filter:saturate(.6)}
+  .here-pill{position:absolute;top:-12px;right:-8px;background:var(--ui);color:#fff;font-size:10px;
+    font-weight:700;padding:3px 8px;border-radius:999px;box-shadow:var(--shadow);white-space:nowrap}
+  /* edges */
+  svg.edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+  .edge{fill:none;stroke:var(--line-strong);stroke-width:2.5;
+    stroke-dasharray:7 7;opacity:0;transition:opacity .4s}
+  .edge.show{opacity:1}
+  .edge.flow{stroke:var(--ui);animation:dash 1.1s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-28}}
+  .elabel{position:absolute;transform:translate(-50%,-50%);background:var(--panel);
+    border:1px solid var(--line);border-radius:7px;padding:3px 8px;font-size:11px;color:var(--ink);
+    box-shadow:0 1px 2px rgba(20,27,40,.05);opacity:0;transition:opacity .4s;white-space:nowrap}
+  .elabel.show{opacity:1}
+  /* narrative + controls */
+  .below{padding:14px 30px 18px;display:flex;gap:24px;align-items:flex-start}
+  .narr{flex:1;font-family:var(--serif);font-size:15.5px;line-height:1.6;color:#39414f;max-width:62ch}
+  .narr b{color:var(--ink)}
+  .controls{display:flex;flex-direction:column;gap:10px;align-items:flex-end;min-width:200px}
+  .steprow{display:flex;align-items:center;gap:8px}
+  .btn{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--line-strong);
+    background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 14px;cursor:pointer}
+  .btn:hover{background:#f1f3f7}
+  .btn.primary{background:var(--ui);color:#fff;border-color:var(--ui)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .dots{display:flex;gap:6px}
+  .dots i{width:8px;height:8px;border-radius:999px;background:var(--line-strong);transition:.3s}
+  .dots i.on{background:var(--ui);transform:scale(1.25)}
+  .stepcap{font-size:12.5px;color:var(--muted);text-align:right;max-width:200px;min-height:32px}
+  /* explain panel */
+  .explain{position:absolute;top:14px;right:14px;width:236px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;
+    opacity:0;transform:translateX(8px);pointer-events:none;transition:.3s;z-index:9}
+  .explain.show{opacity:1;transform:none;pointer-events:auto}
+  .explain .x{float:right;border:0;background:transparent;font-size:16px;cursor:pointer;color:var(--muted)}
+  .explain h5{margin:0 0 6px;font-size:14px}
+  .explain p{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+  .explain .tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;
+    padding:2px 7px;border-radius:6px;margin-bottom:8px}
+  /* simple views (flow/shape/steps) */
+  .simple{position:absolute;inset:0;padding:34px;display:none;flex-direction:column;gap:14px;overflow:auto}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:11px;font-size:13.5px;
+    font-weight:600;box-shadow:var(--shadow);border:1px solid var(--line);background:var(--panel)}
+  .flowline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .arrow{color:var(--muted);font-size:13px}
+  .arrow b{color:var(--ink);font-weight:600;font-size:11.5px;display:block}
+  .shapecard{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--store);
+    border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);max-width:520px}
+  .shapecard code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ink)}
+  .shapecard .lbl{font-size:11px;color:var(--muted);margin-bottom:4px}
+  .seqstep{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px dashed var(--line)}
+  .seqn{width:24px;height:24px;border-radius:999px;background:var(--ui);color:#fff;font-size:12px;
+    font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .seqstep .who{font-weight:600;font-size:13.5px} .seqstep .what{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="title">Login</span>
+    <span class="pill">what just changed</span>
+    <span class="crumb">Whole app &nbsp;›&nbsp; <b>Login feature</b></span>
+    <div class="legend">
+      <span class="lg"><span class="dot" style="background:var(--ui)"></span>Things you see</span>
+      <span class="lg"><span class="dot" style="background:var(--logic)"></span>Logic &amp; rules</span>
+      <span class="lg"><span class="dot" style="background:var(--outside)"></span>Outside world</span>
+      <span class="lg"><span class="dot" style="background:var(--store)"></span>Stored data</span>
+    </div>
+  </div>
+
+  <div class="stage">
+    <nav class="rail">
+      <h4>How do you want to see it?</h4>
+      <button class="navbtn active" data-view="map">
+        <span class="nb-t">The Map</span><span class="nb-s">What the pieces are</span></button>
+      <button class="navbtn" data-view="flow">
+        <span class="nb-t">The Journey</span><span class="nb-s">Where your data goes</span></button>
+      <button class="navbtn" data-view="shape">
+        <span class="nb-t">The Shape</span><span class="nb-s">How the data changes</span></button>
+      <button class="navbtn" data-view="steps">
+        <span class="nb-t">The Steps</span><span class="nb-s">What happens, in order</span></button>
+      <div class="spacer"></div>
+      <div class="foot">Drawn from <b>LoginForm.tsx</b>, <b>auth.ts</b><br>commit a1b2c3d · valid as of today</div>
+    </nav>
+
+    <div class="canvaswrap">
+      <div class="caption">
+        <div class="eyebrow" id="eyebrow">The Map</div>
+        <h2 id="capH">What are the pieces, and what talks to what?</h2>
+      </div>
+
+      <div class="canvas" id="canvas">
+        <!-- MAP view -->
+        <svg class="edges" id="edges" viewBox="0 0 900 460" preserveAspectRatio="none">
+          <path class="edge" data-step="2" d="M175,120 C260,120 250,120 330,120"></path>
+          <path class="edge" data-step="3" d="M480,120 C560,120 560,120 640,120"></path>
+          <path class="edge" data-step="4" d="M405,160 C405,250 405,250 405,300"></path>
+        </svg>
+        <div class="elabel" data-step="2" style="left:255px;top:100px">sends email + password</div>
+        <div class="elabel" data-step="3" style="left:565px;top:100px">calls the server</div>
+        <div class="elabel" data-step="4" style="left:470px;top:235px">saves token</div>
+
+        <div class="node ui" data-step="1" data-key="screen" style="left:24px;top:78px">
+          <div class="role">Things you see</div><div class="nm">Login screen</div><div class="sub">LoginForm.tsx</div></div>
+        <div class="node logic" data-step="1" data-key="auth" style="left:330px;top:78px">
+          <div class="role">Logic</div><div class="nm">Auth logic</div><div class="sub">auth.ts</div>
+          <div class="here-pill">✦ you are here</div></div>
+        <div class="node outside" data-step="3" data-key="api" style="left:640px;top:78px">
+          <div class="role">Outside world</div><div class="nm">Login API</div><div class="sub">POST /login</div></div>
+        <div class="node store" data-step="4" data-key="store" style="left:330px;top:300px">
+          <div class="role">Stored data</div><div class="nm">Token store</div><div class="sub">localStorage</div></div>
+
+        <!-- explain panel -->
+        <div class="explain" id="explain">
+          <button class="x" onclick="hideExplain()">×</button>
+          <span class="tag" id="exTag"></span>
+          <h5 id="exTitle"></h5><p id="exBody"></p>
+        </div>
+
+        <!-- FLOW view -->
+        <div class="simple" id="view-flow">
+          <div class="flowline">
+            <span class="chip" style="border-top:3px solid var(--ui)">email + password</span>
+            <span class="arrow"><b>check it's filled in</b>→</span>
+            <span class="chip" style="border-top:3px solid var(--logic)">validate</span>
+            <span class="arrow"><b>send securely</b>→</span>
+            <span class="chip" style="border-top:3px solid var(--outside)">POST /login</span>
+            <span class="arrow"><b>server replies</b>→</span>
+            <span class="chip" style="border-top:3px solid var(--store)">token</span>
+            <span class="arrow"><b>remember you</b>→</span>
+            <span class="chip" style="border-top:3px solid var(--ui)">go to dashboard</span>
+          </div>
+        </div>
+
+        <!-- SHAPE view -->
+        <div class="simple" id="view-shape">
+          <div class="shapecard"><div class="lbl">What you type</div><code>{ email, password }</code></div>
+          <div class="arrow" style="padding-left:14px">↓ &nbsp;<b style="color:var(--ink)">scramble the password, package it</b></div>
+          <div class="shapecard" style="border-left-color:var(--outside)"><div class="lbl">What is sent to the server</div><code>{ email, passwordHash }</code></div>
+          <div class="arrow" style="padding-left:14px">↓ &nbsp;<b style="color:var(--ink)">server answers</b></div>
+          <div class="shapecard" style="border-left-color:var(--outside)"><div class="lbl">What comes back</div><code>{ token, userId, expiresAt }</code></div>
+          <div class="arrow" style="padding-left:14px">↓ &nbsp;<b style="color:var(--ink)">keep only what's needed</b></div>
+          <div class="shapecard"><div class="lbl">What is stored</div><code>{ token }</code></div>
+        </div>
+
+        <!-- STEPS view -->
+        <div class="simple" id="view-steps">
+          <div class="seqstep"><span class="seqn">1</span><span><span class="who">You</span> → <span class="what">type your email and password, click Sign in</span></span></div>
+          <div class="seqstep"><span class="seqn">2</span><span><span class="who">Login screen</span> → <span class="what">hands them to the Auth logic</span></span></div>
+          <div class="seqstep"><span class="seqn">3</span><span><span class="who">Auth logic</span> → <span class="what">asks the Login API to check them</span></span></div>
+          <div class="seqstep"><span class="seqn">4</span><span><span class="who">Login API</span> → <span class="what">replies “looks good, here's a token”</span></span></div>
+          <div class="seqstep"><span class="seqn">5</span><span><span class="who">Auth logic</span> → <span class="what">saves the token so you stay logged in</span></span></div>
+          <div class="seqstep"><span class="seqn">6</span><span><span class="who">Auth logic</span> → <span class="what">sends you to your dashboard</span></span></div>
+        </div>
+      </div>
+
+      <div class="below">
+        <p class="narr" id="narr"></p>
+        <div class="controls" id="mapControls">
+          <div class="stepcap" id="stepCap">Press play to watch it build, one piece at a time.</div>
+          <div class="steprow">
+            <button class="btn" id="prevBtn" onclick="step(-1)">‹ Back</button>
+            <button class="btn primary" id="playBtn" onclick="togglePlay()">▶ Watch it build</button>
+            <button class="btn" id="nextBtn" onclick="step(1)">Next ›</button>
+          </div>
+          <div class="dots" id="dots"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* ---- content ---- */
+const NARR = {
+  map:"This is the <b>Login</b> feature as four connected pieces. You start at the <b>Login screen</b> (blue, the part you see). It hands your email and password to the <b>Auth logic</b> (green, the part that decides) — that's the piece the AI is changing right now. Auth talks to the <b>Login API</b> out in the world (amber), and saves a <b>token</b> (violet) so you stay signed in.",
+  flow:"Follow your data on its journey. You type an <b>email and password</b>. They get checked, scrambled for safety, and sent to the server. The server replies with a <b>token</b> — a little pass that proves it's you — which gets remembered so the next screen knows you're logged in.",
+  shape:"Watch how your data changes shape at each step. It starts as what you type, gets repackaged with the password hidden, comes back from the server with extra details, and ends as just the one thing worth keeping: the <b>token</b>.",
+  steps:"The same story, told in order. Six steps from clicking <b>Sign in</b> to landing on your dashboard. Each line is one hand-off between pieces — no jargon, just who does what, next."
+};
+const CAP = {
+  map:["The Map","What are the pieces, and what talks to what?"],
+  flow:["The Journey","Where does your data go on its journey?"],
+  shape:["The Shape","How does the data's shape change at each step?"],
+  steps:["The Steps","Walk me through what happens, in order."]
+};
+const EXPLAIN = {
+  screen:["Things you see","Login screen","The page with the email and password boxes and the Sign in button. The only part of all this you actually look at."],
+  auth:["Logic","Auth logic","The decision-maker. It takes what you typed, checks it with the server, and decides whether you're allowed in. This is the piece being changed."],
+  api:["Outside world","Login API","A service on the internet, outside your app, that confirms your password is correct and hands back a token."],
+  store:["Stored data","Token store","A small safe spot in your browser that keeps the token, so you don't have to log in again on every page."]
+};
+const STEPCAPS = {
+  1:"The pieces appear. The glowing one is what's being changed.",
+  2:"The screen sends your email + password to the logic.",
+  3:"The logic checks them with the server outside.",
+  4:"The token gets saved so you stay signed in."
+};
+
+/* ---- view switching ---- */
+let view="map";
+const simple={flow:1,shape:1,steps:1};
+document.querySelectorAll('.navbtn').forEach(b=>b.onclick=()=>setView(b.dataset.view));
+function setView(v){
+  view=v;
+  document.querySelectorAll('.navbtn').forEach(b=>b.classList.toggle('active',b.dataset.view===v));
+  document.getElementById('eyebrow').textContent=CAP[v][0];
+  document.getElementById('capH').textContent=CAP[v][1];
+  document.getElementById('narr').innerHTML=NARR[v];
+  const isMap=v==='map';
+  document.getElementById('edges').style.display=isMap?'block':'none';
+  document.querySelectorAll('.node,.elabel').forEach(n=>n.style.display=isMap?'':'none');
+  document.getElementById('mapControls').style.visibility=isMap?'visible':'hidden';
+  ['flow','shape','steps'].forEach(s=>{
+    document.getElementById('view-'+s).style.display=(v===s)?'flex':'none';
+  });
+  hideExplain();
+  if(isMap) renderStep();
+}
+
+/* ---- progressive reveal (Map) ---- */
+let cur=1; const MAX=4; let playing=false, timer=null;
+const dotsEl=document.getElementById('dots');
+for(let i=1;i<=MAX;i++){const d=document.createElement('i');dotsEl.appendChild(d);}
+function renderStep(){
+  document.querySelectorAll('#canvas .node').forEach(n=>{
+    const s=+n.dataset.step, on=s<=cur;
+    n.classList.toggle('show',on);
+    n.classList.toggle('dim',on && n.dataset.key!=='auth' && cur>=1 && false);
+  });
+  // highlight "you are here" once auth is shown; dim others while building
+  document.querySelectorAll('#canvas .node').forEach(n=>{
+    const shown=n.classList.contains('show');
+    if(n.dataset.key==='auth'&&shown){n.classList.add('here')}else{n.classList.remove('here')}
+    n.classList.toggle('dim', shown && n.dataset.key!=='auth' && cur<MAX);
+  });
+  document.querySelectorAll('.edge,.elabel').forEach(e=>{
+    const s=+e.dataset.step;e.classList.toggle('show',s<=cur);
+    if(e.classList.contains('edge')) e.classList.toggle('flow',s===cur);
+  });
+  dotsEl.querySelectorAll('i').forEach((d,i)=>d.classList.toggle('on',i<cur));
+  document.getElementById('stepCap').textContent=STEPCAPS[cur]||'';
+  document.getElementById('prevBtn').disabled=cur<=1;
+  document.getElementById('nextBtn').disabled=cur>=MAX;
+}
+function step(d){cur=Math.min(MAX,Math.max(1,cur+d));stopPlay();renderStep();}
+function togglePlay(){playing?stopPlay():startPlay();}
+function startPlay(){
+  playing=true;document.getElementById('playBtn').textContent='❚❚ Pause';
+  if(cur>=MAX)cur=1;renderStep();
+  timer=setInterval(()=>{if(cur>=MAX){stopPlay();return;}cur++;renderStep();},1300);
+}
+function stopPlay(){playing=false;clearInterval(timer);document.getElementById('playBtn').textContent='▶ Watch it build';}
+
+/* ---- click to explain ---- */
+document.querySelectorAll('#canvas .node').forEach(n=>n.addEventListener('click',()=>{
+  const k=n.dataset.key,e=EXPLAIN[k];if(!e)return;
+  document.getElementById('exTag').textContent=e[0];
+  document.getElementById('exTag').style.background=getComputedStyle(n).getPropertyValue('border-top-color')+'22';
+  document.getElementById('exTitle').textContent=e[1];
+  document.getElementById('exBody').textContent=e[2];
+  document.getElementById('explain').classList.add('show');
+}));
+function hideExplain(){document.getElementById('explain').classList.remove('show');}
+
+/* init: start with everything visible, paused */
+cur=MAX;setView('map');
+</script>
+</body>
+</html>

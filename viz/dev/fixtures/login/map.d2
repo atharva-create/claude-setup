@@ -1,0 +1,15 @@
+direction: right
+classes: {
+  ui:      { style: { fill: "#eaf1fe"; stroke: "#3b6fe0"; font-color: "#1d3f8f" } }
+  logic:   { style: { fill: "#e6f7f0"; stroke: "#0fa672"; font-color: "#0a6e4c" } }
+  outside: { style: { fill: "#fdf1e1"; stroke: "#e08b2f"; font-color: "#9a5a13" } }
+  store:   { style: { fill: "#f0ebfd"; stroke: "#7d5ce0"; font-color: "#523a9c" } }
+  here:    { style: { stroke-width: 3; bold: true; stroke: "#3b6fe0" } }
+}
+screen:   { label: "Login screen"; class: ui }
+auth:     { label: "Auth logic"; class: [logic; here] }
+loginApi: { label: "Login API"; class: outside }
+store:    { label: "Token store"; class: store }
+screen   -> auth:     "sends email + password"
+auth     -> loginApi: "calls the server"
+auth     -> store:    "saves token"
