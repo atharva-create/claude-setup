@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comprehension Viewer</title>
+<style>
+  :root{
+    --ui:#3b6fe0;      --ui-bg:#eaf1fe;   --ui-ink:#1d3f8f;
+    --logic:#0fa672;   --logic-bg:#e6f7f0; --logic-ink:#0a6e4c;
+    --outside:#e08b2f; --outside-bg:#fdf1e1; --outside-ink:#9a5a13;
+    --store:#7d5ce0;   --store-bg:#f0ebfd; --store-ink:#523a9c;
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#161b25; --muted:#697084;
+    --line:#e4e7ee; --line-strong:#cfd4df; --amber:#e08b2f; --amber-bg:#fdf1e1;
+    --shadow:0 1px 2px rgba(20,27,40,.04),0 8px 24px rgba(20,27,40,.06);
+    --radius:14px;
+    --font:"Söhne","Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+    --serif:"Tiempos Text",Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:16px;padding:14px 22px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+  .title{font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .pill{font-size:11px;font-weight:600;color:var(--muted);
+    border:1px solid var(--line-strong);border-radius:999px;padding:3px 10px}
+  .crumb{font-size:13px;color:var(--muted)} .crumb b{color:var(--ink);font-weight:600}
+  .legend{margin-left:auto;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .legend .lg{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .legend .dot{width:10px;height:10px;border-radius:3px}
+  .ic{width:14px;height:14px;flex:0 0 auto}
+  .stage{flex:1;display:grid;grid-template-columns:212px 1fr;min-height:0}
+  .rail{border-right:1px solid var(--line);background:var(--panel);padding:18px 12px;display:flex;flex-direction:column;gap:4px}
+  .rail h4{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:6px 8px 10px}
+  .navbtn{text-align:left;border:0;background:transparent;border-radius:10px;padding:11px 12px;cursor:pointer;
+    display:flex;flex-direction:column;gap:2px;color:var(--ink);font-family:inherit}
+  .navbtn .nb-t{font-size:14px;font-weight:600}
+  .navbtn .nb-s{font-size:11.5px;color:var(--muted)}
+  .navbtn:hover{background:#f1f3f7}
+  .navbtn[aria-selected="true"]{background:#eef2fb;box-shadow:inset 0 0 0 1px #d7e1f8}
+  .navbtn[aria-selected="true"] .nb-t{color:var(--ui-ink)}
+  .navbtn:focus-visible{outline:2px solid var(--ui);outline-offset:2px}
+  .rail .spacer{flex:1}
+  .rail .foot{font-size:10.5px;color:var(--muted);line-height:1.5;padding:8px;border-top:1px solid var(--line);margin-top:8px}
+  .canvaswrap{min-width:0;display:flex;flex-direction:column;overflow:hidden}
+  .caption{padding:22px 30px 6px}
+  .caption .eyebrow{font-size:12px;font-weight:600;color:var(--ui);letter-spacing:.02em;text-transform:uppercase}
+  .caption h2{margin:6px 0 0;font-size:24px;font-weight:600;letter-spacing:-.02em}
+  .uncertain{margin:8px 30px 0;padding:10px 14px;border-radius:10px;background:var(--amber-bg);
+    border:1px solid var(--amber);color:var(--outside-ink);font-size:13px;display:none}
+  .uncertain.show{display:block} .uncertain b{display:block;margin-bottom:3px}
+  .canvas{flex:1;position:relative;margin:8px 24px;border-radius:var(--radius);
+    background:radial-gradient(circle at 1px 1px,#e9ecf2 1px,transparent 0) 0 0/22px 22px,var(--panel);
+    box-shadow:var(--shadow);overflow:auto}
+  /* map svg host */
+  .mapwrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px}
+  .mapwrap svg{max-width:100%;max-height:100%;height:auto}
+  .mapwrap .shape{cursor:pointer;transition:opacity .35s,filter .35s}
+  .mapwrap .dimmed{opacity:.3;filter:saturate(.55)}
+  .mapwrap .spot{filter:drop-shadow(0 6px 16px rgba(59,111,224,.45))}
+  .mapwrap g[role="button"]:focus-visible{outline:3px solid var(--ui);outline-offset:3px;border-radius:4px}
+  .here-badge{position:absolute;background:var(--ui);color:#fff;font-size:10px;font-weight:700;
+    padding:3px 8px;border-radius:999px;box-shadow:var(--shadow);white-space:nowrap;transform:translate(-50%,-100%);pointer-events:none;z-index:6}
+  .explain{position:absolute;top:14px;right:14px;width:240px;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:14px;
+    opacity:0;transform:translateX(8px);pointer-events:none;transition:.3s;z-index:9}
+  .explain.show{opacity:1;transform:none;pointer-events:auto}
+  .explain .x{float:right;border:0;background:transparent;font-size:16px;cursor:pointer;color:var(--muted)}
+  .explain h5{margin:0 0 6px;font-size:14px} .explain p{margin:0;font-size:12.5px;line-height:1.5;color:var(--muted)}
+  .explain .exsub{display:block;font-size:11px;font-weight:400;color:var(--muted);font-family:ui-monospace,Menlo,monospace;margin-top:2px}
+  .explain .tag{display:inline-block;font-size:10px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:6px;margin-bottom:8px}
+  /* simple views */
+  .simple{position:absolute;inset:0;padding:34px;display:none;flex-direction:column;gap:14px;overflow:auto}
+  .simple.show{display:flex}
+  .chip{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:11px;font-size:13.5px;
+    font-weight:600;box-shadow:var(--shadow);border:1px solid var(--line);background:var(--panel)}
+  .flowline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .arrow{color:var(--muted);font-size:13px} .arrow b{color:var(--ink);font-weight:600;font-size:11.5px;display:block}
+  .shapecard{background:var(--panel);border:1px solid var(--line);border-left:4px solid var(--store);
+    border-radius:10px;padding:12px 14px;box-shadow:var(--shadow);max-width:520px}
+  .shapecard code{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--ink)}
+  .shapecard .lbl{font-size:11px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;gap:5px}
+  .shapecard .lbl .rolelbl{font-weight:700;text-transform:uppercase;letter-spacing:.03em}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+  .seqstep{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px dashed var(--line)}
+  .seqn{width:24px;height:24px;border-radius:999px;background:var(--ui);color:#fff;font-size:12px;
+    font-weight:700;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .seqstep .who{font-weight:600;font-size:13.5px} .seqstep .what{color:var(--muted);font-size:13px}
+  /* narrative + controls */
+  .below{padding:14px 30px 18px;display:flex;gap:24px;align-items:flex-start}
+  .narr{flex:1;font-family:var(--serif);font-size:15.5px;line-height:1.6;color:#39414f;max-width:62ch}
+  .narr b{color:var(--ink)}
+  .controls{display:flex;flex-direction:column;gap:10px;align-items:flex-end;min-width:200px}
+  .btn{font-family:inherit;font-size:13px;font-weight:600;border:1px solid var(--line-strong);
+    background:var(--panel);color:var(--ink);border-radius:9px;padding:8px 14px;cursor:pointer}
+  .btn:hover{background:#f1f3f7} .btn.primary{background:var(--ui);color:#fff;border-color:var(--ui)}
+  .btn:disabled{opacity:.4;cursor:not-allowed} .btn:focus-visible{outline:2px solid var(--ui);outline-offset:2px}
+  .steprow{display:flex;align-items:center;gap:8px}
+  .dots{display:flex;gap:6px} .dots i{width:8px;height:8px;border-radius:999px;background:var(--line-strong);transition:.3s}
+  .dots i.on{background:var(--ui);transform:scale(1.25)}
+  .stepcap{font-size:12.5px;color:var(--muted);text-align:right;max-width:200px;min-height:20px}
+  /* states */
+  .state{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:40px}
+  .state.show{display:flex} .state .big{font-size:17px;font-weight:600} .state .sub{font-size:13.5px;color:var(--muted);max-width:46ch}
+  .state.error .big{color:#b3261e}
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="title" id="t-title">Visualization</span>
+    <span class="pill" id="t-pill" style="display:none"></span>
+    <span class="crumb" id="t-crumb"></span>
+    <div class="legend" id="t-legend"></div>
+  </div>
+
+  <div class="stage">
+    <nav class="rail" role="tablist" aria-label="Choose a view">
+      <h4>How do you want to see it?</h4>
+      <button class="navbtn" role="tab" aria-selected="true"  aria-controls="view-map"   data-view="map"   id="tab-map">
+        <span class="nb-t">The Map</span><span class="nb-s">What the pieces are</span></button>
+      <button class="navbtn" role="tab" aria-selected="false" aria-controls="view-flow"  data-view="flow"  id="tab-flow">
+        <span class="nb-t">The Journey</span><span class="nb-s">Where your data goes</span></button>
+      <button class="navbtn" role="tab" aria-selected="false" aria-controls="view-shape" data-view="shape" id="tab-shape">
+        <span class="nb-t">The Shape</span><span class="nb-s">How the data changes</span></button>
+      <button class="navbtn" role="tab" aria-selected="false" aria-controls="view-steps" data-view="steps" id="tab-steps">
+        <span class="nb-t">The Steps</span><span class="nb-s">What happens, in order</span></button>
+      <div class="spacer"></div>
+      <div class="foot" id="t-foot"></div>
+    </nav>
+
+    <div class="canvaswrap">
+      <div class="caption">
+        <div class="eyebrow" id="eyebrow">The Map</div>
+        <h2 id="capH">What are the pieces, and what talks to what?</h2>
+      </div>
+      <div class="uncertain" id="uncertain"></div>
+
+      <div class="canvas" id="canvas">
+        <div class="mapwrap" id="view-map" role="tabpanel" aria-labelledby="tab-map" aria-label="The Map"></div>
+        <div class="simple" id="view-flow"  role="tabpanel" aria-labelledby="tab-flow" aria-label="The Journey"></div>
+        <div class="simple" id="view-shape" role="tabpanel" aria-labelledby="tab-shape" aria-label="The Shape"></div>
+        <div class="simple" id="view-steps" role="tabpanel" aria-labelledby="tab-steps" aria-label="The Steps"></div>
+        <div class="explain" id="explain">
+          <button class="x" aria-label="Close" onclick="hideExplain()">×</button>
+          <span class="tag" id="exTag"></span><h5 id="exTitle"></h5><p id="exBody"></p>
+        </div>
+        <div class="state" id="state-empty"><div class="big">No code changed — nothing to visualize.</div>
+          <div class="sub">Make a change, then run the command again.</div></div>
+        <div class="state error" id="state-error"><div class="big">Couldn't draw this diagram.</div>
+          <div class="sub" id="state-error-sub">The diagram data was missing or malformed.</div></div>
+      </div>
+
+      <div class="below">
+        <p class="narr" id="narr"></p>
+        <div class="controls" id="mapControls">
+          <div class="stepcap" id="stepCap">Press play to walk through it, one piece at a time.</div>
+          <div class="steprow">
+            <button class="btn" id="prevBtn" onclick="step(-1)">‹ Back</button>
+            <button class="btn primary" id="playBtn" onclick="togglePlay()">▶ Watch it build</button>
+            <button class="btn" id="nextBtn" onclick="step(1)">Next ›</button>
+          </div>
+          <div class="dots" id="dots"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!--VIZ_CONTENT-->
+
+<script>
+/* ====== role helpers ====== */
+const ROLE_LABEL = {ui:"Things you see",logic:"Logic & rules",outside:"Outside world",store:"Stored data"};
+const ROLE_ICON = {
+  ui:'<svg class="ic" viewBox="0 0 16 16"><circle cx="8" cy="5" r="3" fill="#3b6fe0"/><path d="M2 15c0-3 3-5 6-5s6 2 6 5" fill="#3b6fe0"/></svg>',
+  logic:'<svg class="ic" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="2" fill="#0fa672"/></svg>',
+  outside:'<svg class="ic" viewBox="0 0 16 16"><path d="M4 11a3 3 0 010-6 4 4 0 017.6-1A3 3 0 1112 12H4z" fill="#e08b2f"/></svg>',
+  store:'<svg class="ic" viewBox="0 0 16 16"><ellipse cx="8" cy="4" rx="5" ry="2" fill="#7d5ce0"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4" fill="#7d5ce0"/></svg>'
+};
+function roleVar(r){return getComputedStyle(document.documentElement).getPropertyValue('--'+r).trim();}
+/* base64 of a label = D2's node CSS class (matches d2 SVG output) */
+function b64(s){return btoa(unescape(encodeURIComponent(s)));}
+/* Match a mapNode key to its D2 <g class="<base64(key)> <role> [here]">. D2 emits a NESTED
+   container child as the base64 of its DOTTED path ("Screens.login"). So try the exact base64
+   first, then fall back to any node group whose decoded key === key or ends with ".<key>". */
+function findNodeGroup(groups, key){
+  const tok=b64(key);
+  let g=groups.find(gr=>gr.getAttribute('class').split(/\s+/).includes(tok));
+  if(g) return g;
+  return groups.find(gr=>gr.getAttribute('class').split(/\s+/).some(t=>{
+    let dec; try{ dec=decodeURIComponent(escape(atob(t))); }catch(_){ return false; }
+    return dec===key || dec.endsWith('.'+key);
+  }));
+}
+
+const V = window.VIZ || null;
+
+/* ====== bootstrap / states ====== */
+function showState(id){
+  ['state-empty','state-error'].forEach(s=>document.getElementById(s).classList.toggle('show', s===id));
+  document.querySelectorAll('.simple,.mapwrap').forEach(e=>e.style.visibility = id?'hidden':'');
+  document.getElementById('mapControls').style.visibility = id?'hidden':'';
+}
+function fatal(msg){ if(msg) document.getElementById('state-error-sub').textContent=msg; showState('state-error'); }
+
+function init(){
+  if(!V || typeof V!=='object'){ return fatal("No diagram data was provided."); }
+  if(V.status==='empty'){ return showState('state-empty'); }
+  if(V.status==='error'){ return fatal(V.error||"The diagram reported an error."); }
+  // header
+  document.getElementById('t-title').textContent = V.title || "Visualization";
+  if(V.scope){ const p=document.getElementById('t-pill'); p.textContent=V.scope; p.style.display=''; }
+  if(Array.isArray(V.breadcrumb)) document.getElementById('t-crumb').innerHTML =
+    V.breadcrumb.map((c,i)=> i===V.breadcrumb.length-1?'<b>'+esc(c)+'</b>':esc(c)).join(' › ');
+  if(V.footer) document.getElementById('t-foot').innerHTML = esc(V.footer).replace(/·/g,'<br>·');
+  // legend (always all four)
+  document.getElementById('t-legend').innerHTML = Object.keys(ROLE_LABEL).map(r=>
+    '<span class="lg">'+ROLE_ICON[r]+'<span class="dot" style="background:'+roleVar(r)+'"></span>'+ROLE_LABEL[r]+'</span>').join('');
+  // uncertainty
+  if(Array.isArray(V.uncertain) && V.uncertain.length){
+    const u=document.getElementById('uncertain');
+    u.innerHTML='<b>⚠ A couple of things I wasn\'t fully sure about:</b>'+V.uncertain.map(x=>'• '+esc(x)).join('<br>');
+    u.classList.add('show');
+  }
+  try{
+    buildMap(); buildFlow(); buildShape(); buildSteps();
+  }catch(e){ return fatal("Something went wrong drawing the views: "+e.message); }
+  setView('map');
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* ====== Map (D2 SVG + interactivity) ====== */
+let mapNodes=[];
+function buildMap(){
+  const wrap=document.getElementById('view-map');
+  if(!V.mapSVG){ wrap.innerHTML='<div style="color:var(--muted);font-size:13px">No map for this view.</div>'; return; }
+  wrap.innerHTML=V.mapSVG;
+  const svg=wrap.querySelector('svg'); if(!svg) throw new Error("Map SVG didn't parse");
+  mapNodes=(V.mapNodes||[]);
+  // D2 emits each node as <g class="<base64(key)> <role> [here]">. Find by that token (with
+  // a dotted-path fallback for nested container children — see findNodeGroup).
+  const groups=[...svg.querySelectorAll('g[class]')];
+  const missing=[];
+  mapNodes.forEach(n=>{
+    const g=findNodeGroup(groups, n.key||n.label);
+    n._g=g;
+    if(g){
+      g.style.cursor='pointer';
+      g.addEventListener('click',()=>explain(n));
+      g.setAttribute('tabindex','0'); g.setAttribute('role','button');
+      g.setAttribute('aria-label', (ROLE_LABEL[n.role]||'')+': '+n.label);
+      g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();explain(n);}});
+      if(n.here) addHereBadge(svg,g);
+    } else { missing.push(n.label); }
+  });
+  // CQ4 self-check at view time: if a labeled node never rendered, say so rather than hide it.
+  if(missing.length){
+    const u=document.getElementById('uncertain');
+    u.innerHTML='<b>⚠ Some pieces could not be drawn (a label may have broken the diagram):</b>'+missing.map(m=>'• '+esc(m)).join('<br>');
+    u.classList.add('show');
+  }
+  buildDots(mapNodes.length);
+}
+function addHereBadge(svg,g){
+  const host=document.getElementById('view-map');
+  const badge=document.createElement('div'); badge.className='here-badge'; badge.textContent='✦ you are here';
+  host.appendChild(badge);
+  const place=()=>{ const b=g.getBoundingClientRect(), w=host.getBoundingClientRect();
+    badge.style.left=(b.left-w.left+b.width/2)+'px'; badge.style.top=(b.top-w.top-6)+'px'; };
+  requestAnimationFrame(place); requestAnimationFrame(()=>requestAnimationFrame(place));
+  window.addEventListener('resize',place);
+}
+function explain(n){
+  document.getElementById('exTag').textContent=ROLE_LABEL[n.role]||'';
+  document.getElementById('exTag').style.background=roleVar(n.role)+'22';
+  // Clarity rule 1: plain label first, technical name (e.g. auth.ts) as small grey subtext.
+  document.getElementById('exTitle').innerHTML=esc(n.label)+(n.sub
+    ?'<span class="exsub">'+esc(n.sub)+'</span>':'');
+  document.getElementById('exBody').textContent=n.explain||'';
+  document.getElementById('explain').classList.add('show');
+}
+function hideExplain(){document.getElementById('explain').classList.remove('show');}
+
+/* spotlight walk-through over map nodes.
+   States: cur=0 nothing shown (pre-play); cur=s (1..MAX) reveals nodes 0..s-1 and spotlights node s-1;
+   cur=MAX+1 all shown, nothing spotlit (done). So EVERY node — including the last — gets its own moment. */
+let cur=0, MAX=0, playing=false, timer=null;
+function buildDots(n){MAX=n;const d=document.getElementById('dots');d.innerHTML='';for(let i=0;i<n;i++)d.appendChild(document.createElement('i'));cur=MAX+1;renderStep();}
+function renderStep(){
+  mapNodes.forEach((n,i)=>{ if(!n._g)return;
+    n._g.classList.toggle('dimmed', i>=cur);              // visible once revealed (i < cur)
+    n._g.classList.toggle('spot', cur<=MAX && i===cur-1); // spotlight one node per step; none at the terminal
+  });
+  document.querySelectorAll('#dots i').forEach((d,i)=>d.classList.toggle('on',i<cur));
+  document.getElementById('stepCap').textContent = (cur>MAX)?'All the pieces are shown. Click any box to learn what it is.'
+    : (cur>=1 && mapNodes[cur-1] ? 'Now showing: '+mapNodes[cur-1].label : 'Press play to walk through it.');
+  document.getElementById('prevBtn').disabled=cur<=1;
+  document.getElementById('nextBtn').disabled=cur>MAX;
+}
+function step(d){cur=Math.min(MAX+1,Math.max(1,cur+d));stopPlay();renderStep();}
+function togglePlay(){playing?stopPlay():startPlay();}
+function reducedMotion(){return window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
+function startPlay(){
+  // Respect prefers-reduced-motion: no auto-advancing animation — reveal everything at once.
+  // (Back / Next remain available for user-driven, non-animated stepping.)
+  if(reducedMotion()){cur=MAX+1;renderStep();return;}
+  playing=true;document.getElementById('playBtn').textContent='❚❚ Pause';if(cur>MAX)cur=0;renderStep();
+  timer=setInterval(()=>{if(cur>MAX){stopPlay();return;}cur++;renderStep();},1200);}
+function stopPlay(){playing=false;clearInterval(timer);document.getElementById('playBtn').textContent='▶ Watch it build';}
+
+/* ====== Journey / Shape / Steps ====== */
+function buildFlow(){
+  const el=document.getElementById('view-flow'); const f=V.flow||[];
+  // role conveyed by icon + accessible role text (colorblind-safe), not the border color alone
+  el.innerHTML='<div class="flowline">'+f.map(x=>{ const r=x.role||'ui'; return x.arrow
+    ? '<span class="arrow"><b>'+esc(x.arrow)+'</b>→</span>'
+    : '<span class="chip" title="'+esc(ROLE_LABEL[r])+'" style="border-top:3px solid '+roleVar(r)+'">'+ROLE_ICON[r]+'<span class="sr-only">'+esc(ROLE_LABEL[r])+': </span>'+esc(x.label)+'</span>';
+  }).join('')+'</div>';
+}
+function buildShape(){
+  const el=document.getElementById('view-shape'); const s=V.shape||[];
+  el.innerHTML=s.map(x=>{ const r=x.role||'store'; return x.t
+    ? '<div class="arrow" style="padding-left:14px">↓ &nbsp;<b style="color:var(--ink)">'+esc(x.t)+'</b></div>'
+    // role icon + text in the card header so role never reads by color alone
+    : '<div class="shapecard" style="border-left-color:'+roleVar(r)+'"><div class="lbl">'+ROLE_ICON[r]+'<span class="rolelbl">'+esc(ROLE_LABEL[r])+'</span> · '+esc(x.lbl)+'</div><code>'+esc(x.code)+'</code></div>';
+  }).join('');
+}
+function buildSteps(){
+  const el=document.getElementById('view-steps'); const st=V.steps||[];
+  el.innerHTML=st.map((x,i)=>'<div class="seqstep"><span class="seqn">'+(i+1)+'</span><span><span class="who">'+esc(x.who)+'</span> → <span class="what">'+esc(x.what)+'</span></span></div>').join('');
+}
+
+/* ====== view switching ====== */
+const CAP={map:["The Map","What are the pieces, and what talks to what?"],
+  flow:["The Journey","Where does your data go on its journey?"],
+  shape:["The Shape","How does the data's shape change at each step?"],
+  steps:["The Steps","Walk me through what happens, in order."]};
+let view="map";
+function setView(v){
+  view=v;
+  document.querySelectorAll('.navbtn').forEach(b=>b.setAttribute('aria-selected', b.dataset.view===v?'true':'false'));
+  document.getElementById('eyebrow').textContent=CAP[v][0];
+  document.getElementById('capH').textContent=CAP[v][1];
+  document.getElementById('narr').innerHTML=(V.narr&&V.narr[v])?V.narr[v]:'';
+  const isMap=v==='map';
+  document.getElementById('view-map').style.display=isMap?'flex':'none';
+  ['flow','shape','steps'].forEach(s=>document.getElementById('view-'+s).classList.toggle('show',v===s));
+  document.getElementById('mapControls').style.visibility=isMap?'visible':'hidden';
+  hideExplain();
+}
+document.querySelectorAll('.navbtn').forEach((b,i,arr)=>{
+  b.onclick=()=>setView(b.dataset.view);
+  b.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'||e.key==='ArrowRight'){e.preventDefault();arr[(i+1)%arr.length].focus();}
+    if(e.key==='ArrowUp'||e.key==='ArrowLeft'){e.preventDefault();arr[(i-1+arr.length)%arr.length].focus();}
+  });
+});
+init();
+</script>
+</body>
+</html>
