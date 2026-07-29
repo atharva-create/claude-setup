@@ -44,6 +44,22 @@
 5. **Document Results**: Add review section to `tasks/todo.md`
 6. **Capture Lessons**: Update `tasks/lessons.md` after corrections
 
+## Feature-ID Governance (opt-in)
+
+A portable governance module ships in `governance/`. When **installed** into a project
+(run `/setup-governance`, or `bash governance/install.sh`), it adds a committed `features/`
+registry (features / bugs / backlog / epics), git-derived deploy status, a scoped sanity
+sweep, git-tree code attribution, and hard enforcement via git hooks + a CI gate — so
+nothing ships without a feature ID.
+
+- **If `features/README.md` exists in the project, governance is ACTIVE — follow it.**
+  Every new functionality is a new `<PREFIX>-####` feature; edits become a new feature
+  that `supersedes:`/`amends:` the predecessor; carry the id in the branch name and a
+  commit trailer; regenerate `features/REGISTRY.md` after any feature change. The project's
+  settings live in `scripts/_config.py`; the full contract is `features/README.md`.
+- **If it is not installed**, offer `/setup-governance` when the user wants feature/epic
+  tracking. It is opt-in — do not install it unprompted.
+
 ## gstack
 
 - Available skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/design-shotgun`, `/review`, `/ship`, `/land-and-deploy`, `/canary`, `/benchmark`, `/browse`, `/connect-chrome`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/setup-deploy`, `/retro`, `/investigate`, `/document-release`, `/codex`, `/cso`, `/autoplan`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gstack-upgrade`

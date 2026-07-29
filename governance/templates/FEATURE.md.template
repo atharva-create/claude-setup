@@ -1,0 +1,49 @@
+---
+id: {{PREFIX}}-0000
+title: {{TITLE}}
+type: feature
+status: in-dev
+module: []
+critical: false
+depends_on: []
+touches: []
+supersedes: null
+superseded_by: null
+amends: []
+amended_by: []
+related: []
+epic: null
+phase: null
+branch: null
+prs: []
+sit_sha: null
+prod_sha: null
+verification: untested
+verified_at: null
+created: {{DATE}}
+links: {}
+---
+
+# {{TITLE}}
+
+`{{PREFIX}}-0000` · feature
+
+## Summary
+
+_(what this ships and why — one short paragraph)_
+
+## Acceptance Criteria
+
+- [ ] _(checkable outcome)_
+
+## How to Verify
+
+_(the user/API flow, URLs, and a pointer to creds — enough for a testing agent to run it)_
+
+## Known Bugs
+
+_(none recorded — link `type: bug` entries here as they are filed)_
+
+## References
+
+_(design / adr / eval / runbook links)_

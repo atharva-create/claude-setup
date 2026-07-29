@@ -1,0 +1,9 @@
+# Sanity Check — {{PREFIX}}-0000 {{TITLE}}
+
+> Regression checklist for **{{PREFIX}}-0000**. Any change touching this feature's
+> module(s) or `touches:` subsystems should run these to confirm it still works.
+> Keep it short and high-signal (3–5 checks). This is NOT the acceptance spec.
+
+- [ ] _(must-still-work check)_
+- [ ] _(must-still-work check)_
+- [ ] _(must-still-work check)_
