@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Feature-ID governance: every code commit must carry a `<TRAILER>: <PREFIX>-####` trailer.
+# Config comes from .githooks/governance.conf. See features/README.md.
+# Bypass for a genuine one-off with FEATURE_ID_SKIP=1.
+#
+# Exemptions (no trailer required):
+#   - merge / revert / fixup! / squash! commits
+#   - docs:/chore: subjects (config- or docs-only changes)
+set -euo pipefail
+
+msg_file="$1"
+subject="$(sed -n '1p' "$msg_file")"
+
+# Load config (defaults keep the hook working even without the conf file).
+conf="$(git rev-parse --show-toplevel)/.githooks/governance.conf"
+# shellcheck disable=SC1090
+[ -f "$conf" ] && . "$conf"
+PREFIX="${PREFIX:-FT}"; ID_WIDTH="${ID_WIDTH:-4}"; TRAILER="${TRAILER:-Feature-ID}"
+REQUIRE_TRAILER="${REQUIRE_TRAILER:-1}"
+
+# Soft mode (REQUIRE_TRAILER=0) or explicit bypass — accept anything.
+if [[ "${FEATURE_ID_SKIP:-0}" == "1" || "$REQUIRE_TRAILER" != "1" ]]; then
+  exit 0
+fi
+
+case "$subject" in
+  "Merge "*|"Revert "*|"fixup! "*|"squash! "*|"docs:"*|"docs("*|"chore:"*|"chore("*)
+    exit 0 ;;
+esac
+
+pattern="^${TRAILER}:[[:space:]]*${PREFIX}-[0-9]{${ID_WIDTH}}[[:space:]]*\$"
+if grep -qiE "$pattern" "$msg_file"; then
+  exit 0
+fi
+
+cat >&2 <<EOF
+✗ commit rejected: missing a valid ${TRAILER} trailer.
+
+  Add a trailer line to your commit message:
+
+      ${TRAILER}: ${PREFIX}-0042
+
+  The ${PREFIX}-#### must have a folder under features/ (create it first, or promote a
+  backlog item). Exempt: merge/revert commits and docs:/chore: subjects.
+  Emergency bypass (discouraged): FEATURE_ID_SKIP=1 git commit ...
+EOF
+exit 1

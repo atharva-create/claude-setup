@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Feature-ID governance: no deploy without a feature ID.
+#
+# The DEPLOY_BRANCHES listed in .githooks/governance.conf are deploy branches. A push to
+# any of them MUST carry at least one valid <PREFIX>-#### (in a commit's <TRAILER> trailer,
+# a merge subject "Merge feat/<PREFIX>-####-...", or the pushed branch name) whose
+# features/<PREFIX>-####/FEATURE.md exists. Pushes to any other branch are unrestricted.
+# An empty DEPLOY_BRANCHES (tracking mode) gates nothing.
+#
+# stdin lines: <local ref> <local sha> <remote ref> <remote sha>
+# See features/README.md. Emergency bypass (discouraged): FEATURE_ID_SKIP=1 git push ...
+set -euo pipefail
+
+if [[ "${FEATURE_ID_SKIP:-0}" == "1" ]]; then
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+conf="$repo_root/.githooks/governance.conf"
+# shellcheck disable=SC1090
+[ -f "$conf" ] && . "$conf"
+# NB: use `-` not `:-` for DEPLOY_BRANCHES so an explicit empty value (tracking mode,
+# gate nothing) is preserved; the default applies only when the conf is missing entirely.
+PREFIX="${PREFIX:-FT}"; ID_WIDTH="${ID_WIDTH:-4}"; DEPLOY_BRANCHES="${DEPLOY_BRANCHES-main}"
+
+# No deploy branches configured (tracking mode) — nothing to gate.
+[[ -z "${DEPLOY_BRANCHES// /}" ]] && exit 0
+
+id_re="${PREFIX}-[0-9]{${ID_WIDTH}}"
+zero="0000000000000000000000000000000000000000"
+gate_failed=0
+
+is_gated() {                          # is branch $1 in the DEPLOY_BRANCHES list?
+  local b
+  for b in $DEPLOY_BRANCHES; do
+    [[ "$1" == "$b" ]] && return 0
+  done
+  return 1
+}
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  branch="${remote_ref#refs/heads/}"
+  is_gated "$branch" || continue      # non-deploy branch — unrestricted
+
+  # Deleting the branch — nothing to gate.
+  [[ "$local_sha" == "$zero" ]] && continue
+
+  # Commit range being pushed. New remote branch: inspect the whole history tip-side.
+  if [[ "$remote_sha" == "$zero" ]]; then
+    range="$local_sha"
+  else
+    range="${remote_sha}..${local_sha}"
+  fi
+
+  # Collect candidate ids from commit subjects+bodies in the range and the local ref name.
+  candidates="$( { git log --format='%s%n%b' "$range" 2>/dev/null || true; echo "$local_ref"; } \
+                 | grep -oE "$id_re" | sort -u )"
+
+  valid=""
+  shopt -s nullglob
+  for id in $candidates; do
+    for d in "$repo_root/features/${id}-"*/; do
+      [[ -f "${d}FEATURE.md" ]] && valid="$id"
+    done
+  done
+  shopt -u nullglob
+
+  if [[ -z "$valid" ]]; then
+    echo "✗ push to ${branch} rejected: no valid feature ID found." >&2
+    echo "  Commits pushed to a deploy branch must reference a ${PREFIX}-#### whose" >&2
+    echo "  features/${PREFIX}-####/FEATURE.md exists (via a trailer, a" >&2
+    echo "  'Merge feat/${PREFIX}-####-...' subject, or the branch name)." >&2
+    echo "  Candidates seen: ${candidates:-<none>}" >&2
+    gate_failed=1
+  else
+    echo "✓ ${branch}: feature ID $valid verified." >&2
+  fi
+done
+
+exit "$gate_failed"

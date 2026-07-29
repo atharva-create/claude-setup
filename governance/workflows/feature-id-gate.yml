@@ -1,0 +1,48 @@
+name: Feature-ID Gate
+
+# Prod gate: a PR into the production branch cannot merge without a valid feature ID and a
+# fresh, lint-clean registry. This is the hard, unfakeable half of the "no deploy without a
+# feature ID" rule (a staging branch, if any, is gated by the pre-push hook).
+# Make this a required status check via branch protection on the production branch.
+#
+# TEMPLATE — the installer replaces __PROD_BRANCH__ and __FETCH_REFS__ from your answers:
+#   single      → branch main ; fetch '+refs/heads/main:refs/remotes/origin/main'
+#   two-branch  → branch main ; fetch develop + main
+#   tracking    → this workflow is not installed (no deploy gate)
+
+on:
+  pull_request:
+    branches: [__PROD_BRANCH__]
+
+jobs:
+  feature-id-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Deploy status (shipped-*) is DERIVED from git ancestry (scripts/_deploy_state.py):
+      # a feature is shipped once its Feature-ID commits reach a deploy branch. Make those
+      # remote-tracking refs exist so the registry renders the same rows CI-side.
+      - name: Fetch deploy branches
+        run: |
+          git fetch --no-tags origin __FETCH_REFS__
+
+      - name: Registry is fresh and lint-clean
+        run: python scripts/build-registry.py --check
+
+      - name: PR carries a valid feature ID
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA...HEAD" \
+            | python scripts/ci-feature-gate.py \
+                --head-ref "$HEAD_REF" --title "$PR_TITLE" --body "$PR_BODY"
