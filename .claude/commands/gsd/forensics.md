@@ -19,7 +19,7 @@ Output: Forensic report saved to `.planning/forensics/`, presented inline, with 
 </objective>
 
 <execution_context>
-@/Users/atharvashetye/Desktop/codelens/claude_setup/.claude/get-shit-done/workflows/forensics.md
+@.claude/get-shit-done/workflows/forensics.md
 </execution_context>
 
 <context>
@@ -36,7 +36,7 @@ Output: Forensic report saved to `.planning/forensics/`, presented inline, with 
 </context>
 
 <process>
-Read and execute the forensics workflow from @/Users/atharvashetye/Desktop/codelens/claude_setup/.claude/get-shit-done/workflows/forensics.md end-to-end.
+Read and execute the forensics workflow from @.claude/get-shit-done/workflows/forensics.md end-to-end.
 </process>
 
 <success_criteria>
